@@ -328,7 +328,7 @@ class Node(BaseNode):
                     logging.info(f"({self.addr}) (Reputation callback) Reactive Dynamic aggregation function is enabled for round {self.round}. Randomly select an aggregation function for the next round.")
                     logging.info(f"({self.addr}) (Reputation callback) Direct neighbors: {self.get_neighbors(only_direct=True)} | Undirected neighbors: {self.get_neighbors(only_undirected=True)} at round {self.round}")
                     
-                    # Call the dynamic aggregator function with the aggregated models weights and malicious nodes
+                    # Call the dynamic aggregator function, change the aggregator to the target aggregation function
                     self.__dynamic_aggregator(self.aggregator.get_aggregated_models_weights(), malicious_nodes)               
 
     # Zi Ye
@@ -339,15 +339,14 @@ class Node(BaseNode):
 
         Returns:
             The selected aggregation function
+
+        Raises:
+            None
+
+        Example Usage:
+            aggregation_function = self.__randomly_select_aggregation_function()
         """
         # Define the pool of aggregation functions
-        # aggregation_functions = {
-        #     "FedAvg": FedAvg(node_name=self.get_name(), config=self.config),
-        #     "Krum": Krum(node_name=self.get_name(), config=self.config),
-        #     "Median": Median(node_name=self.get_name(), config=self.config),
-        #     "TrimmedMean": TrimmedMean(node_name=self.get_name(), config=self.config)
-        # }
-        
         aggregation_functions = ["Krum","Median", "TrimmedMean"]
 
         # Get the current aggregation function
@@ -365,7 +364,7 @@ class Node(BaseNode):
         
         logging.info(f"selected_aggregation_function_name is {selected_aggregation_function_name}")
         
-        
+        # Create the aggregation function based on the randomly chosen name
         if selected_aggregation_function_name == "Krum":
             selected_aggregation_function = Krum(node_name=self.get_name(), config=self.config)
             self.aggregator_name = "Krum"
@@ -409,19 +408,17 @@ class Node(BaseNode):
         self.aggregator = self.target_aggregation
         self.aggregator.set_nodes_to_aggregate(self.__train_set)
         logging.info(f"__dynamic_aggregator self.aggregator.__round before is: {self.aggregator.get_round() }")
+        # Set the round of the aggregator to the current round
         self.aggregator.set_round(self.round)
         logging.info(f"__dynamic_aggregator self.aggregator.__round after is: {self.aggregator.get_round() }")
 
-        # Add models to the aggregator
+        # Add the models to the aggregator
         for subnodes in aggregated_models_weights.keys():
             sublist = subnodes.split()
             (submodel, weights) = aggregated_models_weights[subnodes]
 
+            # Add the model to the aggregator if the node is not in the list of malicious nodes
             for node in sublist:
-                # self.aggregator.add_model(
-                #         submodel, [node], weights, source=self.get_name(), round=self.round
-                #     )
-                
                 if node not in malicious_nodes:
                     logging.info(f"{node} is not in malicious_nodes, adding to aggregator")
                     self.aggregator.add_model(
@@ -431,7 +428,6 @@ class Node(BaseNode):
                     logging.info(f"{node} is in malicious_nodes, not adding to aggregator")
 
         # Log the current aggregator after the change
-                    
         logging.info(f"get_aggregated_models current(after change) aggregator is: {self.aggregator}")
         logging.info(f"__dynamic_aggregator after self.aggregator.get_aggregated_models_weights().  are: {self.aggregator.get_aggregated_models_weights()}")
 
@@ -1133,6 +1129,7 @@ class Node(BaseNode):
         if self.round is not None:
             if self.with_reputation and not self.__is_malicious:
                 malicious_nodes = []
+                
                 # Proactive dynamic aggregation function
                 if self.round > 0:
                     if (self.is_dynamic_aggregation) and (self.dynamic_aggregation_mode == "Proactive"):
@@ -1153,12 +1150,12 @@ class Node(BaseNode):
                         logging.info(f"({self.addr}) Reputation score(cossim, avg_loss) at round {self.round}: {reputation}")
 
                         if len(malicious_nodes) > 0:
-                            
                             # Send reputation message to other nodes
                             self.send_reputation(malicious_nodes)
                             
                             logging.info(f"({self.addr}) (active detection) Reactive Dynamic aggregation function is enabled for round {self.round}. Randomly select an aggregation function for the next round.")
                             logging.info(f"({self.addr}) (active detection) calling dynamic_aggregator function")
+                            # Call the dynamic aggregator function, change the aggregator to the target_aggregation
                             self.__dynamic_aggregator(self.aggregator.get_aggregated_models_weights(), malicious_nodes)
                             logging.info(f"({self.addr}) (active detection) finish dynamic_aggregator function")
 
